@@ -12,19 +12,13 @@
 
 닌텐도 스위치 형태의 콘솔 UI를 적용하여 단순한 텍스트 게임이지만 시각적으로 게임기 화면처럼 보이도록 구성했습니다.
 
----
+---  
 
-## 📸 게임 화면
-**시작 화면**  
-<img width="420" alt="start" src="https://github.com/user-attachments/assets/ea6cfb00-ef71-4430-8d51-db7356d8ceeb" />  
-**게임 방법 화면**  
-<img width="420" alt="howtoplay" src="https://github.com/user-attachments/assets/6d39cf1f-0165-441b-8d88-131f43a2e349" />  
-**닉네임 입력 화면**  
-<img width="420" alt="name" src="https://github.com/user-attachments/assets/d16a074b-ebf1-4a46-8472-f17b94982c51" />  
-**게임 플레이 화면**  
-<img width="420" alt="gameplay" src="https://github.com/user-attachments/assets/ec0f6c98-bea4-4e3d-8df9-345c8b9ded40" />   
+## 🎮 게임 플레이 영상  
 
----
+[실행 영상 보기](https://github.com/user-attachments/assets/c3f0298a-8721-4580-bf6a-c2d202e07dcd)  
+
+---  
 
 ## 🎯 조작 방법
 
