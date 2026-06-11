@@ -43,7 +43,18 @@
 #define PLAYER_ICON 'O' // 플레이어를 표시하는 문자 
 #define CAR_ICON 'X'// 자동차를 표시하는 문자 
 
-/* 최고 점수를 저장하고 불러올 파일 이름 */
+/* 러시아워 시스템 설정
+   - 1, 2스테이지: 러시아워 없음
+   - 3스테이지: 1번
+   - 4스테이지: 2번
+   - 5스테이지: 3번
+   화면 깜빡임 없이 상단 한 줄에만 상태를 고정 표시한다. */
+#define RUSH_BONUS_CARS 3   // 러시아워 때 추가되는 자동차 수
+#define RUSH_MOVE_COUNT 2   // 러시아워 때 자동차 이동 횟수
+#define RUSH_WAIT 4         // 러시아워 시작 전 대기 시간
+#define RUSH_DURATION 6     // 러시아워 유지 시간
+
+   /* 최고 점수를 저장하고 불러올 파일 이름 */
 #define BEST_SCORE_FILE "bestscore.txt"
 
 /* 왼쪽 조이콘 색상: 파란 배경 + 흰 글자 */
@@ -102,6 +113,13 @@ int carCount = 0;       /* 현재 스테이지에서 사용되는 자동차 개�
 int gameRunning = 0;    /* 게임 진행 여부. 1이면 진행 중, 0이면 종료 */
 int gameClear = 0;      /* 최종 스테이지 클리어 여부 */
 
+/* 러시아워 관련 전역 변수 */
+int baseCarCount = 0;   /* 러시아워가 아닐 때의 기본 자동차 수 */
+int rushMode = 0;       /* 러시아워 진행 여부. 1이면 러시아워 */
+int rushTick = 0;       /* 러시아워 시작 전 대기 시간 카운트 */
+int rushCount = 0;      /* 현재 스테이지에서 발생한 러시아워 횟수 */
+int rushRemain = 0;     /* 러시아워 남은 시간 */
+
 void setConsoleSize();
 void gotoxy(int x, int y);
 void hideCursor();
@@ -124,6 +142,7 @@ void printBoxBlank();
 void printNicknameLine();
 
 void printStatusLine(Player* p);
+void printTrafficLine(Player* p);
 void printGameBorder();
 void printGameRow(char map[HEIGHT][WIDTH + 1], int y);
 void printGameChar(char ch);
@@ -152,6 +171,11 @@ int checkCollision(Player* p, Car cars[]);
 void checkCoin(Player* p, Coin* coin, Car cars[]);
 int checkGoal(Player* p, Car cars[], Coin* coin);
 int getGameSpeed(Player* p);
+
+int getRushTargetCount(Player* p);
+void resetRushHourStage();
+void startRushHour(Car cars[]);
+void updateRushHour(Player* p, Car cars[]);
 
 void playGame();
 
@@ -483,6 +507,42 @@ void printStatusLine(Player* p) {
     );
 
     printCenterText(line);
+}
+
+
+/* 러시아워 상태를 상단에 한 줄로 고정 출력한다. 깜빡임 없이 현재 상태만 보여준다. */
+void printTrafficLine(Player* p) {
+    char line[120];
+    int targetRush = getRushTargetCount(p);
+
+    if (targetRush == 0) {
+        setColor(COLOR_GREEN);
+        printCenterText("TRAFFIC : NORMAL        RUSH HOUR : NONE");
+        setColor(COLOR_WHITE);
+    }
+    else if (rushMode == 1) {
+        setColor(COLOR_RED);
+        sprintf(line, "!!! RUSH HOUR MODE !!!        CARS +%d / SPEED x%d",
+            RUSH_BONUS_CARS,
+            RUSH_MOVE_COUNT
+        );
+        printCenterText(line);
+        setColor(COLOR_WHITE);
+    }
+    else if (rushCount >= targetRush) {
+        setColor(COLOR_GREEN);
+        printCenterText("TRAFFIC : NORMAL        RUSH HOUR : FINISHED");
+        setColor(COLOR_WHITE);
+    }
+    else {
+        setColor(COLOR_YELLOW);
+        sprintf(line, "TRAFFIC : NORMAL        RUSH HOUR %d/%d WAITING",
+            rushCount,
+            targetRush
+        );
+        printCenterText(line);
+        setColor(COLOR_WHITE);
+    }
 }
 
 /* 실제 게임 맵을 감싸는 작은 테두리를 출력한다. */
@@ -934,6 +994,9 @@ void setCarCount(Player* p) {
     if (carCount > MAX_CARS) {
         carCount = MAX_CARS;
     }
+
+    /* 러시아워가 아닐 때의 기본 자동차 수를 저장한다. */
+    baseCarCount = carCount;
 }
 
 /* 자동차 구조체 배열을 초기화한다. 각 자동차 위치와 방향을 난수로 정한다. */
@@ -1000,6 +1063,7 @@ void initGame(Player* p, Car cars[], Coin* coin) {
     resetPlayer(p);
     initCars(p, cars);
     initCoin(coin, cars);
+    resetRushHourStage();
 }
 
 /* 실제 게임 진행 화면을 그린다. 2차원 배열에 게임 요소를 배치한 뒤 출력한다. */
@@ -1063,6 +1127,10 @@ void drawMap(Player* p, Car cars[], Coin* coin) {
 
     beginRow(row);
     printStatusLine(p);
+    endRow(row++);
+
+    beginRow(row);
+    printTrafficLine(p);
     endRow(row++);
 
     beginRow(row);
@@ -1199,6 +1267,7 @@ int checkGoal(Player* p, Car cars[], Coin* coin) {
             resetPlayer(p);
             initCars(p, cars);
             initCoin(coin, cars);
+            resetRushHourStage();
             return 1;
         }
     }
@@ -1206,10 +1275,117 @@ int checkGoal(Player* p, Car cars[], Coin* coin) {
     return 0;
 }
 
+
+/* 현재 스테이지에서 러시아워가 몇 번 발생할지 정한다.
+   1, 2스테이지는 0번 / 3스테이지는 1번 / 4스테이지는 2번 / 5스테이지는 3번 */
+int getRushTargetCount(Player* p) {
+    if (p->stage < 3) {
+        return 0;
+    }
+
+    return p->stage - 2;
+}
+
+/* 새 스테이지가 시작될 때 러시아워 상태를 초기화한다. */
+void resetRushHourStage() {
+    rushMode = 0;
+    rushTick = 0;
+    rushCount = 0;
+    rushRemain = 0;
+    carCount = baseCarCount;
+}
+
+/* 러시아워를 시작한다. 추가 자동차를 배치하고 자동차 수를 늘린다. */
+void startRushHour(Car cars[]) {
+    int i;
+    int newCount;
+
+    rushMode = 1;
+    rushRemain = RUSH_DURATION;
+    rushCount++;
+
+    newCount = baseCarCount + RUSH_BONUS_CARS;
+
+    if (newCount > MAX_CARS) {
+        newCount = MAX_CARS;
+    }
+
+    /* 러시아워 때 추가되는 자동차만 새로 초기화한다. */
+    for (i = baseCarCount; i < newCount; i++) {
+        cars[i].x = rand() % WIDTH;
+        cars[i].y = 1 + rand() % (HEIGHT - 2);
+
+        if (rand() % 2 == 0) {
+            cars[i].dir = 1;
+        }
+        else {
+            cars[i].dir = -1;
+        }
+    }
+
+    carCount = newCount;
+}
+
+/* 매 반복마다 러시아워 시작/종료 상태를 갱신한다. */
+void updateRushHour(Player* p, Car cars[]) {
+    int targetRush;
+
+    targetRush = getRushTargetCount(p);
+
+    /* 1, 2스테이지는 러시아워가 없다. */
+    if (targetRush == 0) {
+        rushMode = 0;
+        rushTick = 0;
+        rushCount = 0;
+        rushRemain = 0;
+        carCount = baseCarCount;
+        return;
+    }
+
+    /* 러시아워 진행 중이면 유지 시간을 줄이고, 끝나면 기본 자동차 수로 되돌린다. */
+    if (rushMode == 1) {
+        rushRemain--;
+
+        if (rushRemain <= 0) {
+            rushMode = 0;
+            rushTick = 0;
+            carCount = baseCarCount;
+        }
+
+        return;
+    }
+
+    /* 해당 스테이지의 러시아워 횟수를 모두 사용했으면 더 이상 발생하지 않는다. */
+    if (rushCount >= targetRush) {
+        return;
+    }
+
+    /* 일정 시간 대기 후 러시아워를 시작한다. */
+    rushTick++;
+
+    if (rushTick >= RUSH_WAIT) {
+        startRushHour(cars);
+    }
+}
+
 /* 현재 스테이지에 따라 게임 속도를 계산한다. Sleep 시간으로 사용된다. */
 int getGameSpeed(Player* p) {
+    int speed;
+
     /* 스테이지가 높을수록 Sleep 시간이 짧아져 속도가 빨라진다. */
-    return 300 - p->stage * 25;
+    speed = 300 - p->stage * 25;
+
+    /* 러시아워 중에는 화면 갱신 속도도 조금 더 빠르게 한다. */
+    if (rushMode == 1) {
+        speed = speed - 40;
+    }
+
+    /* 너무 빨라져서 게임이 깨지지 않도록 최소값을 둔다. */
+    if (speed < 80) {
+        speed = 80;
+    }
+
+    return speed;
 }
 
 /* 실제 게임 한 판의 전체 흐름을 관리한다. 입력, 이동, 충돌, 점수, 결과 저장을 모두 연결한다. */
@@ -1224,6 +1400,7 @@ void playGame() {
     int newBest = 0;
     int crash;
     int stageUp;
+    int moveStep;
 
     /* Player 구조체 주소를 넘겨 닉네임을 입력받는다. */
     drawNameInput(&player);
@@ -1234,6 +1411,9 @@ void playGame() {
 
     /* 게임이 진행 중일 동안 계속 반복한다. */
     while (gameRunning == 1) {
+        /* 러시아워 상태를 먼저 갱신한 뒤 화면에 출력한다. */
+        updateRushHour(&player, cars);
+
         /* 현재 게임 상태를 화면에 출력한다. */
         drawMap(&player, cars, &coin);
 
@@ -1245,11 +1425,24 @@ void playGame() {
             movePlayer(&player, input);
         }
 
-        /* 모든 자동차를 이동시킨다. */
-        moveCars(cars);
+        /* 모든 자동차를 이동시킨다.
+           러시아워 중에는 자동차를 2번 이동시켜 속도가 빨라진 것처럼 만든다. */
+        crash = 0;
 
-        /* 자동차와 충돌했는지 확인한다. */
-        crash = checkCollision(&player, cars);
+        for (moveStep = 0; moveStep < RUSH_MOVE_COUNT; moveStep++) {
+            if (rushMode == 0 && moveStep > 0) {
+                break;
+            }
+
+            moveCars(cars);
+
+            /* 자동차와 충돌했는지 확인한다. */
+            crash = checkCollision(&player, cars);
+
+            if (crash == 1) {
+                break;
+            }
+        }
 
         if (crash == 1) {
             if (gameRunning == 1) {
