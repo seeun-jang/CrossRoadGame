@@ -19,7 +19,7 @@
 
 ## 🎮 게임 플레이 영상  
 
-[실행 영상 보기](https://github.com/user-attachments/assets/c3f0298a-8721-4580-bf6a-c2d202e07dcd)  
+[실행 영상 보기](https://github.com/user-attachments/assets/08108a22-a89a-4e81-bc45-4632047d7ce0)  
 
 ---  
 
@@ -60,12 +60,12 @@
 
 러시아워 모드에서는 자동차가 추가로 등장하고, 자동차 이동 속도도 빨라집니다.
 
-### 스테이지	러시아워 발생 횟수
-Stage 1	없음
-Stage 2	없음
-Stage 3	1번
-Stage 4	2번
-Stage 5	3번
+### 스테이지 Rush Hour 발생 횟수
+Stage 1	없음  
+Stage 2	없음  
+Stage 3	1번  
+Stage 4	2번  
+Stage 5	3번  
 
 ---  
 
