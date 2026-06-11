@@ -20,7 +20,11 @@
 
 ## 🎮 게임 플레이 영상  
 
-[실행 영상 보기](https://github.com/user-attachments/assets/08108a22-a89a-4e81-bc45-4632047d7ce0)  
+
+
+[실행영상 보기](https://github.com/user-attachments/assets/6a985d06-900f-4433-8846-83dbf2d3addc)  
+
+
 실제 플레이 할 때는 화면이 넘어갈 때 아래에서 위로 지워지듯 나오지만, 녹화 영상에서는 검정 화면으로만 나오니 참고부탁드립니다.  
 
 ---  
